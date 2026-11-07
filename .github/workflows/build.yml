@@ -10,8 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  android-client:
-    name: Build Android Client APK
+  build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -19,13 +18,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Extract Source ZIP
+      - name: Extract Android Project ZIP
         run: |
-          ZIP="RezavkHtml2App-2.1.0-Source.zip"
-          test -f "$ZIP" || { echo "Source ZIP not found"; exit 1; }
+          ZIP="Androider-GitHub-Starter-v0.1.1-READY-TO-UPLOAD.zip"
+          test -f "$ZIP"
           mkdir -p /tmp/androider
           unzip -q "$ZIP" -d /tmp/androider
-          cp -a /tmp/androider/RezavkHtml2App-2.1.0/. .
+          cp -a /tmp/androider/. .
 
       - name: Setup Java 17
         uses: actions/setup-java@v4
@@ -34,47 +33,31 @@ jobs:
           java-version: '17'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
 
-      - name: Install Android Platform
+      - name: Install Android SDK
         run: |
           sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.7'
+          gradle-version: '8.9'
 
       - name: Build APK
-        run: |
-          cd android-client
-          gradle --no-daemon assembleDebug
+        run: gradle --no-daemon assembleDebug
 
-      - name: Upload APK
+      - name: Build AAB
+        run: gradle --no-daemon bundleRelease
+
+      - name: Upload APK and AAB
         uses: actions/upload-artifact@v4
         with:
-          name: RezavkHtml2App-2.1.0-Client-APK
-          path: android-client/app/build/outputs/apk/debug/*.apk
+          name: Androider-APK-AAB
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/bundle/release/*.aab
           if-no-files-found: error
           retention-days: 14
-
-  backend-image:
-    name: Build Conversion Engine
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Extract Source ZIP
-        run: |
-          ZIP="RezavkHtml2App-2.1.0-Source.zip"
-          test -f "$ZIP" || { echo "Source ZIP not found"; exit 1; }
-          mkdir -p /tmp/androider
-          unzip -q "$ZIP" -d /tmp/androider
-          cp -a /tmp/androider/RezavkHtml2App-2.1.0/. .
-
-      - name: Build Conversion Engine Docker Image
-        run: |
-          docker build -t rezavk-html2app-engine:2.1.0 ./build-server
