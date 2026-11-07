@@ -1,9 +1,11 @@
+
 name: Androider Auto Build
 
 on:
   workflow_dispatch:
   push:
-    branches: [main, master]
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -11,56 +13,37 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
 
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Extract Android Project ZIP
-        run: |
-          ZIP="Androider-GitHub-Starter-v0.1.1-READY-TO-UPLOAD.zip"
-          test -f "$ZIP"
-          mkdir -p /tmp/androider
-          unzip -q "$ZIP" -d /tmp/androider
-          cp -a /tmp/androider/. .
-
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Install Android SDK
-        run: |
-          set -e
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
-          test -n "$SDKMANAGER"
-          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses
-          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.9'
+      - name: Install Android SDK Packages
+        run: |
+          sdkmanager --install "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          yes | sdkmanager --licenses
+
+      - name: Grant Execute Permission
+        run: |
+          chmod +x gradlew
 
       - name: Build APK
-        run: gradle --no-daemon assembleDebug
+        run: |
+          ./gradlew assembleDebug --stacktrace
 
-      - name: Build AAB
-        run: gradle --no-daemon bundleRelease
-
-      - name: Upload APK and AAB
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Androider-APK-AAB
+          name: Androider-APK
           path: |
-            app/build/outputs/apk/debug/*.apk
-            app/build/outputs/bundle/release/*.aab
+            **/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-          retention-days: 14
-
